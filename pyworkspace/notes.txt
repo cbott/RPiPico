@@ -1,0 +1,27 @@
+# Docs
+https://www.raspberrypi.org/documentation/rp2040/getting-started/#board-specifications
+https://datasheets.raspberrypi.org/pico/raspberry-pi-pico-python-sdk.pdf
+https://datasheets.raspberrypi.org/pico/pico-datasheet.pdf
+
+# rshell
+rshell --buffer-size=512 -p /dev/ttyACM0
+- help
+- repl
+- ctrl^X to exit repl
+- cp local_app.py /pyboard/main.py to upload to board
+
+# Dynamixel stuff
+https://github.com/ROBOTIS-GIT/Dynamixel2Arduino/tree/master/src
+https://github.com/jumejume1/AX-12A-servo-library
+https://emanual.robotis.com/docs/en/dxl/ax/ax-12a/
+https://emanual.robotis.com/docs/en/dxl/protocol1/
+
+
+
+# Use in wheel mode
+    servo.write_cw_limit(0)
+    servo.write_ccw_limit(0)
+
+    servo.write_speed(300)
+    utime.sleep(1)
+    servo.write_speed(0)

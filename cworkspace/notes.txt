@@ -1,0 +1,11 @@
+Getting started doc: https://datasheets.raspberrypi.org/pico/getting-started-with-pico.pdf
+SDK docs: https://raspberrypi.github.io/pico-sdk-doxygen/
+
+
+# Run from cworkspace/pico-examples/build
+export PICO_SDK_PATH=../../pico-sdk
+
+
+# Debug with Picoprobe
+src/openocd -f interface/picoprobe.cfg -f target/rp2040.cfg -s tcl
+

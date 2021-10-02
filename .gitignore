@@ -1,0 +1,5 @@
+**build/
+**venv/
+cworkspace/openocd/
+cworkspace/pico-examples/
+cworkspace/pico-sdk/
