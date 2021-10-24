@@ -223,8 +223,13 @@ class AX12:
 Pose = namedtuple('Pose', ['theta0', 'theta1', 'theta2', 'theta3'])
 
 
+# TODO: Use consistent nomenclature
+# angle = radians, joint angle in robot coordinate frame
+# coordinate/position? = xyz coordinates
+# value = raw servo 0-1023 position
+
 class Robot:
-    NUM_JOINTS = 4
+    NUM_JOINTS = 4  # TODO: seems a bit silly to have this
     JOINT_LIMITS = [
         (0, 1023),
         (200, 830),
@@ -234,9 +239,9 @@ class Robot:
     # Beam lengths [mm]
     L1 = 120
     L2 = 115
-    L3 = 57
+    L3 = 58
 
-    def __init__(self, servo1, servo2, servo3, servo4) -> None:
+    def __init__(self, servo1: AX12, servo2: AX12, servo3: AX12, servo4: AX12) -> None:
         self.joints = [servo1, servo2, servo3, servo4]
 
         for joint_num, joint in enumerate(self.joints):
@@ -247,11 +252,17 @@ class Robot:
         self.prev_angles = Pose(pi/2, 2, -pi/2, -pi/2)
         self.set_joint_angles(self.prev_angles)
 
-    def set_joint_raw(self, joint_num: int, position: int) -> None:
+    def set_joint_value(self, joint_num: int, position: int) -> None:
         """ Set joint position directly as Servo value, after rounding to nearest int """
         # TODO: Add bounds checking or read error flag after write
         # maybe write_position needs to return a bool and we pass that along?
         self.joints[joint_num].write_position(position)
+        # TODO: find a way to cleanly merge with next method, maybe passing None for a list value skips it?
+
+    def set_joint_values(self, values: list) -> None:
+        # TODO: set speeds here too? Probably not but then maybe a standalone speed setting method?
+        for i in range(len(self.joints)):
+            self.set_joint_value(i, values[i])
 
     def set_joint_angles(self, angles: Pose, speed: int = 100) -> bool:
         """ Set angles in radians """
@@ -268,23 +279,20 @@ class Robot:
         # Convert angle to servo counts
         # TODO: determine if 0.29 is accurate
         COUNTS_PER_RADIAN = 197.571654  # 0.29 degrees per count
-        positions = [
+        values = [
             (angles.theta0 * COUNTS_PER_RADIAN) + 201,
              822 - (angles.theta1 * COUNTS_PER_RADIAN),  # Or (angles.theta1 * COUNTS_PER_RADIAN) + 201 if we fix servo direction
              512 - (angles.theta2 * COUNTS_PER_RADIAN),  # Or (angles.theta2 * COUNTS_PER_RADIAN) + 512
              512 - (angles.theta3 * COUNTS_PER_RADIAN)  # Or (angles.theta3 * COUNTS_PER_RADIAN) + 512
         ]
-        positions = [int(round(p, 0)) for p in positions]
-
-        print('Setting joint positions of {}'.format(positions))
+        values = [int(round(p, 0)) for p in values]
 
         for joint in range(self.NUM_JOINTS):
             limits = self.JOINT_LIMITS[joint]
-            if not limits[0] <= positions[joint] <= limits[1]:
+            if not limits[0] <= values[joint] <= limits[1]:
                 return False
 
-        for joint in range(self.NUM_JOINTS):
-            self.set_joint_raw(joint, positions[joint])
+        self.set_joint_values(values)
         return True
 
     @classmethod
@@ -343,6 +351,17 @@ class Robot:
 
         return Pose(theta0, theta1, theta2, theta3)
 
+    @classmethod
+    def numerical_ik_solver(cls):
+        pass
+
+    def disable_torque(self) -> None:
+        for joint in self.joints:
+            joint.write_torque_enable(False)
+
+    def get_joint_values(self) -> list:
+        return [joint.read_position() for joint in self.joints]
+
     def set_position(self, x: float, y: float, z:float, end_angle: float = 0, invert_base: bool = False, invert_elbow: bool = False, speed: int = 100) -> bool:
         """ Move the end effector to the specified cartesian coordinates
 
@@ -376,19 +395,6 @@ def test_servo():
         print('Position: ', response)
         utime.sleep(0.5)
 
-    # i = 0
-    # while i < 10:
-    #     i += 1
-    #     print('\nAttempting to read temperature', i)
-    #     try:
-    #         print('Temperature (C):', servo1.read_temperature())
-    #         i = 100
-    #     except ValueError as e:
-    #         print('FAILED:', e)
-    # while 1:
-    #     pos1 = int(input("Position (0-1023): "))
-    #     print(servo1.write_position(pos1))
-
 
 def test_robot():
     uart0 = UART(0, baudrate=BAUDRATE, tx=Pin(0), rx=Pin(1))
@@ -410,7 +416,59 @@ def test_robot():
             continue
         print(robot.set_position(*coords))
 
+
+def position_playback():
+    uart0 = UART(0, baudrate=BAUDRATE, tx=Pin(0), rx=Pin(1))
+
+
+    directionpin = Pin(2, Pin.OUT)
+    directionpin.value(0)
+
+    robot = Robot(AX12(uart0, 0x1, directionpin),
+                  AX12(uart0, 0x2, directionpin),
+                  AX12(uart0, 0x3, directionpin),
+                  AX12(uart0, 0x4, directionpin))
+
+    command_button = Pin(3, Pin.IN, Pin.PULL_UP)
+    prev_command = 1
+
+    positions = []
+    index = 0
+
+    while 1:
+        utime.sleep_ms(100)
+        command = command_button.value()
+
+        if not command:
+            if prev_command:
+                robot.disable_torque()
+                positions = []
+
+            value =  robot.get_joint_values()
+            print('Recorded', value)
+            positions.append(value)
+
+        else:
+            if not positions:
+                continue
+
+            if index >= len(positions):
+                index = 0
+                for joint in robot.joints:
+                    joint.write_speed(100)
+            else:
+                for joint in robot.joints:
+                    joint.write_speed(0)
+
+            value = positions[index]
+            print('Replaying', value)
+            robot.set_joint_values(value)
+            index += 1
+
+        prev_command = command
+
 if __name__ == '__main__':
-    test_robot()
+    position_playback()
+    # test_robot()
     # test_servo()
 
