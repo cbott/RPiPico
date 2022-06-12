@@ -2,10 +2,30 @@ Getting started doc: https://datasheets.raspberrypi.org/pico/getting-started-wit
 SDK docs: https://raspberrypi.github.io/pico-sdk-doxygen/
 
 
-# Run from cworkspace/pico-examples/build
-export PICO_SDK_PATH=../../pico-sdk
+## Setup steps after cloning this repository
+##########################################################################
+git clone -b master https://github.com/raspberrypi/pico-sdk.git
+cd pico-sdk
+git submodule update --init
+sudo apt install cmake gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential
 
+cd ../build
+export PICO_SDK_PATH=../pico-sdk
+cmake ..
+
+cd test
+
+# Set these environment variables I think? Or use cmake tools extension
+# CMAKE_C_COMPILER= /usr/bin/arm-none-eabi-gcc
+# CMAKE_CXX_COMPILER= /usr/bin/arm-none-eabi-g++
+
+make -j4
+# Drag and drop test.uf2 onto mounted pico device
+# View console with minicom -b 115200 -o -D /dev/ttyACM0
+# Might need sudo or add user to dialout for that
+###########################################################################
 
 # Debug with Picoprobe
+# Will need to add pico to udev rules like https://forums.raspberrypi.com/viewtopic.php?t=312867
 src/openocd -f interface/picoprobe.cfg -f target/rp2040.cfg -s tcl
 
