@@ -1,5 +1,6 @@
 add_executable(robot
-  robot.c
+  robot.cpp
+  AX12.cpp
 )
 
 pico_enable_stdio_usb(robot 1)
