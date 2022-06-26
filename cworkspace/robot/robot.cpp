@@ -5,66 +5,50 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <iostream>
 
 #include "AX12.h"
 
-#define UART_TX_PIN 0
-#define UART_RX_PIN 1
+// UART used for servo connection
+#define UART_ID uart1
+#define UART_TX_PIN 4
+#define UART_RX_PIN 5
+#define BAUD_RATE 1000000
 
 const uint ID = 0x1;
 const uint DIRECTION_PIN = 2;
 
-// void send_command1(){
-//   uint8_t instruction = CMD_WRITE;
-//   uint8_t param1 = MEM_GOAL_POSITION;
-//   uint16_t position = 100;
-//   uint8_t param2 = position & 0xFF;
-//   uint8_t param3 = position >> 8;
-
-//   uint8_t length = 5; // len(params) + 2
-
-//   uint8_t checksum = (~(ID + length + instruction + param1 + param2 + param3)) & 0xFF;
-
-//   uint8_t message[] = {MESSAGE_HEADER, MESSAGE_HEADER, ID, length, instruction, param1, param2, param3, checksum};
-
-//   uart_write_blocking(uart0, message, 9);
-// }
-
-// void send_command2(){
-//   uint8_t instruction = CMD_WRITE;
-//   uint8_t param1 = MEM_GOAL_POSITION;
-//   uint16_t position = 500;
-//   uint8_t param2 = position & 0xFF;
-//   uint8_t param3 = position >> 8;
-
-//   uint8_t length = 5; // len(params) + 2
-
-//   uint8_t checksum = (~(ID + length + instruction + param1 + param2 + param3)) & 0xFF;
-
-//   uint8_t message[] = {MESSAGE_HEADER, MESSAGE_HEADER, ID, length, instruction, param1, param2, param3, checksum};
-
-//   uart_write_blocking(uart0, message, 9);
-// }
 
 int main(){
-  uart_init(uart0, 1000000);
+  stdio_init_all();
 
+  uart_init(UART_ID, BAUD_RATE);
   gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
   gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
 
   gpio_init(DIRECTION_PIN);
   gpio_set_dir(DIRECTION_PIN, GPIO_OUT);
 
-  // gpio_put(DIRECTION_PIN, 0);
+  // Initialize robot objects
+  AX12 servo(UART_ID, ID, DIRECTION_PIN);
 
-  AX12 servo(uart0, ID, DIRECTION_PIN);
-
+  std::cout << "Initializing robot" << std::endl;
   sleep_ms(100);
+  // Clear out any junk we have in the UART buffer
+  uint8_t buf[32];
+  size_t n = read_all_available_data(UART_ID, buf, 32);
+  std::cout << "Cleared " << n << std::endl;
 
+  // servo.write_position(100);
+  // sleep_ms(1000);
+  servo.write_torque_enable(false);
+  int j = 0;
   while(1){
-    servo.write_position(100);
-    sleep_ms(3000);
-    servo.write_position(400);
-    sleep_ms(3000);
+    int pos = servo.read_position();
+    if(pos < 1){
+      std::cout << "Read position " << pos << "  n=" << j << std::endl;
+    }
+    j++;
+    sleep_ms(1);
   }
 }
