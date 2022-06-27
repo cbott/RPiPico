@@ -18,7 +18,6 @@
 const uint ID = 0x1;
 const uint DIRECTION_PIN = 2;
 
-
 int main(){
   stdio_init_all();
 
@@ -29,26 +28,19 @@ int main(){
   gpio_init(DIRECTION_PIN);
   gpio_set_dir(DIRECTION_PIN, GPIO_OUT);
 
+  std::cout << "Initializing robot" << std::endl;
+
   // Initialize robot objects
   AX12 servo(UART_ID, ID, DIRECTION_PIN);
 
-  std::cout << "Initializing robot" << std::endl;
-  sleep_ms(100);
+  sleep_ms(10);
   // Clear out any junk we have in the UART buffer
-  uint8_t buf[32];
-  size_t n = read_all_available_data(UART_ID, buf, 32);
-  std::cout << "Cleared " << n << std::endl;
+  while(uart_is_readable(UART_ID)) uart_getc(UART_ID);
 
-  // servo.write_position(100);
-  // sleep_ms(1000);
   servo.write_torque_enable(false);
-  int j = 0;
   while(1){
     int pos = servo.read_position();
-    if(pos < 1){
-      std::cout << "Read position " << pos << "  n=" << j << std::endl;
-    }
-    j++;
-    sleep_ms(1);
+    std::cout << "Servo position: " << pos << std::endl;
+    sleep_ms(100);
   }
 }

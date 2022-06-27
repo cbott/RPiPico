@@ -4,7 +4,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
-#include <iostream>
 #include "AX12.h"
 
 size_t read_all_available_data(uart_inst_t *uart, uint8_t *dst, size_t max_len){
@@ -76,39 +75,47 @@ int AX12::send_instruction(uint8_t instruction, uint8_t params[], uint8_t n_para
   const size_t OFFSET_ERR = 4;
   const size_t OFFSET_PARAMS = 5;
 
-  uint8_t rx_buffer[16]; // TODO: add length limit of 2 to prevent buffer overrun and reduce to 8 bytes (or 9 if leading 0)
+  uint8_t rx_buffer[RX_BUFFER_SIZE];
 
-  for(int i=0; i<16; ++i){
+  for(int i=0; i<RX_BUFFER_SIZE; ++i){
     rx_buffer[i] = 0xBB;  // TODO: remove, debug only
   }
 
   // Read AX12 response
   // First provide time for AX12 to respond - maximum delay is 508us
-  if(!uart_is_readable_within_us(device_uart, 508)){ /// TODO: adjust based on actual configuration
+  if(!uart_is_readable_within_us(device_uart, 508)){
     // No response received
-    return -1; // ERR_NO_RESPONSE
     gpio_put(device_rxpin, MODE_TX);
+    return ERR_NO_RESPONSE;
   }
 
   // Then wait for all bytes to be received
   // Expect up to 8 bytes, each with 1 start bit, 1 stop bit, no parity bit (80 bits total)
   // 80 bits at 1 Mbaud is 80us, but life isn't that simple so 200us is based on testing
   sleep_us(200);
-  size_t bytes_read = read_all_available_data(device_uart, rx_buffer, 16);
+  size_t bytes_read = read_all_available_data(device_uart, rx_buffer, RX_BUFFER_SIZE);
   gpio_put(device_rxpin, MODE_TX);
   if(bytes_read < 6){ // MIN_MSG_LEN
-    return -2; // ERR_INCOMPLETE_RESPONSE
+    return ERR_INCOMPLETE_RESPONSE;
   }
 
   if(rx_buffer[OFFSET_HEADER1] != MESSAGE_HEADER || rx_buffer[OFFSET_HEADER2] != MESSAGE_HEADER){
-    return -3;  // ERR_INVALID_HEADER
+    return ERR_INVALID_HEADER;
   }
   uint8_t rx_id = rx_buffer[OFFSET_ID];
-  uint8_t rx_length = rx_buffer[OFFSET_LEN];
-
-  if(rx_length < 2 || rx_length > 4){
-    return -4; // ERR_INVALID_LENGTH
+  if(rx_id != device_id){
+    // We have somehow recieved a response from a different AX12
+    return ERR_ID_MISMATCH;
   }
+
+  uint8_t rx_length = rx_buffer[OFFSET_LEN];
+  if(rx_length < 2 || rx_length > 4){
+    return ERR_INVALID_LENGTH;
+  }
+
+  // Update our error status with the latest status response
+  uint8_t rx_err = rx_buffer[OFFSET_ERR];
+  device_status_error.error_byte = rx_err;
 
   uint8_t rx_checksum = rx_buffer[OFFSET_LEN + rx_length];
 
@@ -119,18 +126,8 @@ int AX12::send_instruction(uint8_t instruction, uint8_t params[], uint8_t n_para
   checksum = (~(param_sum)) & 0xFF;
 
   if(checksum != rx_checksum){
-    return -5;  // ERR_CHECKSUM_MISMATCH
+    return ERR_CHECKSUM_MISMATCH;
   }
-
-  /// TODO: move error codes to header file constants
-  // Error codes (from https://emanual.robotis.com/docs/en/dxl/protocol1/)
-  // 1000000 Instruction Error   In case of sending an undefined instruction or delivering the action instruction without the Reg Write instruction, it is set as 1
-  // 0100000 Overload Error      When the current load cannot be controlled by the set Torque, it is set as 1
-  // 0010000 Checksum Error      When the Checksum of the transmitted Instruction Packet is incorrect, it is set as 1
-  // 0001000 Range Error         When an instruction is out of the range for use, it is set as 1
-  // 0000100 Overheating Error   When internal temperature of DYNAMIXEL is out of the range of operating temperature set in the Control table, it is set as 1
-  // 0000010 Angle Limit Error   When Goal Position is written out of the range from CW Angle Limit to CCW Angle Limit , it is set as 1
-  // 0000001 Input Voltage Error When the applied voltage is out of the range of operating voltage set in the Control table, it is as 1
 
   uint8_t rx_params = rx_length - 2;
   if(rx_params == 1){
@@ -145,68 +142,64 @@ int AX12::send_instruction(uint8_t instruction, uint8_t params[], uint8_t n_para
   }
 }
 
-void AX12::write_led_status(bool status){
+int AX12::write_led_status(bool status){
   /*
   status: desired LED status
   */
   uint8_t param_list[] = {MEM_LED, status};
-  send_instruction(CMD_WRITE, param_list, 2);
+  return send_instruction(CMD_WRITE, param_list, 2);
 }
 
-void AX12::write_position(uint16_t position){
+int AX12::write_position(uint16_t position){
   // position: 0-1023 target position to move to
-  std::cout << "write_position: " << position << std::endl;
   uint8_t param_list[] = {MEM_GOAL_POSITION, (uint8_t)(position & 0xFF), (uint8_t)(position >> 8)};
-  int response = send_instruction(CMD_WRITE, param_list, 3);
-  std::cout << "write_position response: " << response << std::endl;
+  return send_instruction(CMD_WRITE, param_list, 3);
 }
 
 // Note: set CW and CCW limit to 0 for "wheel" mode (no rotation limits)
-void AX12::write_cw_limit(uint16_t position){
+int AX12::write_cw_limit(uint16_t position){
   /* Clockwise angle limit
   position: 0-1023 angle limit
   */
-  uint8_t param_list[] = {MEM_CW_ANGLE_LIMIT, position & 0xFF, position >> 8};
-  send_instruction(CMD_WRITE, param_list, 3);
+  uint8_t param_list[] = {MEM_CW_ANGLE_LIMIT, (uint8_t)(position & 0xFF), (uint8_t)(position >> 8)};
+  return send_instruction(CMD_WRITE, param_list, 3);
 }
 
-void AX12::write_ccw_limit(uint16_t position){
+int AX12::write_ccw_limit(uint16_t position){
   /* Counter-clockwise angle limit
   position: 0-1023 angle limit
   */
-  uint8_t param_list[] = {MEM_CCW_ANGLE_LIMIT, position & 0xFF, position >> 8};
-  send_instruction(CMD_WRITE, param_list, 3);
+  uint8_t param_list[] = {MEM_CCW_ANGLE_LIMIT, (uint8_t)(position & 0xFF), (uint8_t)(position >> 8)};
+  return send_instruction(CMD_WRITE, param_list, 3);
 }
 
-void AX12::write_speed(uint16_t speed){
+int AX12::write_speed(uint16_t speed){
   /* Moving Speed
   speed:
       If in Joint mode: 0-1023 corresponding to ~0-114 RPM
       If in Wheel mode: 0-2047 corresponding to 0-100% output power
   */
-  uint8_t param_list[] = {MEM_MOVING_SPEED, speed & 0xFF, speed >> 8};
-  send_instruction(CMD_WRITE, param_list, 3);
+  uint8_t param_list[] = {MEM_MOVING_SPEED, (uint8_t)(speed & 0xFF), (uint8_t)(speed >> 8)};
+  return send_instruction(CMD_WRITE, param_list, 3);
 }
 
-void AX12::write_id(uint8_t id){
+int AX12::write_id(uint8_t id){
   /* Change the network identifier of the servo
 
   id: the desired new ID for the servo [0-253]
   */
   uint8_t param_list[] = {MEM_ID, id};
-  send_instruction(CMD_WRITE, param_list, 2);
+  return send_instruction(CMD_WRITE, param_list, 2);
   device_id = id;
 }
 
-void AX12::write_torque_enable(bool enable){
+int AX12::write_torque_enable(bool enable){
   /* Enable or disable servo torque output */
-  std::cout << "write_torque_enable: " << enable << std::endl;
   uint8_t param_list[] = {MEM_TORQUE_ENABLE, enable};
-  int response = send_instruction(CMD_WRITE, param_list, 2);
-  std::cout << "write_torque_enable response: " << response << std::endl;
+  return send_instruction(CMD_WRITE, param_list, 2);
 }
 
-void AX12::write_return_delay_time(uint8_t delay_2us){
+int AX12::write_return_delay_time(uint8_t delay_2us){
   /* Change the DYNAMIXEL delay between receiving an Instruction packet
      and sending a Status packet response
 
@@ -214,7 +207,7 @@ void AX12::write_return_delay_time(uint8_t delay_2us){
     valid range 0 (no delay) to 254 (508us delay)
   */
   uint8_t param_list[] = {MEM_RETURN_DELAY_TIME, delay_2us};
-  send_instruction(CMD_WRITE, param_list, 2);
+  return send_instruction(CMD_WRITE, param_list, 2);
 }
 
 int AX12::read_temperature(){

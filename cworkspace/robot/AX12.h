@@ -4,6 +4,21 @@
 
 size_t read_all_available_data(uart_inst_t *uart, uint8_t *dst, size_t max_len);
 
+// Error codes (from https://emanual.robotis.com/docs/en/dxl/protocol1/)
+union AX12StatusError {
+  uint8_t error_byte;
+  struct {
+    uint8_t               : 1; // Unused
+    uint8_t instruction   : 1; // In case of sending an undefined instruction or delivering the action instruction without the Reg Write instruction, it is set as 1
+    uint8_t overload      : 1; // When the current load cannot be controlled by the set Torque, it is set as 1
+    uint8_t checksum      : 1; // When the Checksum of the transmitted Instruction Packet is incorrect, it is set as 1
+    uint8_t range         : 1; // When an instruction is out of the range for use, it is set as 1
+    uint8_t overheating   : 1; // When internal temperature of DYNAMIXEL is out of the range of operating temperature set in the Control table, it is set as 1
+    uint8_t angle_limit   : 1; // When Goal Position is written out of the range from CW Angle Limit to CCW Angle Limit , it is set as 1
+    uint8_t input_voltage : 1; // When the applied voltage is out of the range of operating voltage set in the Control table, it is as 1
+  } error_components;
+};
+
 class AX12 {
 private:
   uart_inst_t *device_uart;
@@ -13,14 +28,16 @@ private:
 
 public:
   AX12(uart_inst_t *uart, uint8_t id, uint rxpin);
-  void write_led_status(bool status);
-  void write_position(uint16_t position);
-  void write_cw_limit(uint16_t position);
-  void write_ccw_limit(uint16_t position);
-  void write_speed(uint16_t speed);
-  void write_id(uint8_t id);
-  void write_torque_enable(bool enable);
-  void write_return_delay_time(uint8_t delay_2us);
+  AX12StatusError device_status_error;
+
+  int write_led_status(bool status);
+  int write_position(uint16_t position);
+  int write_cw_limit(uint16_t position);
+  int write_ccw_limit(uint16_t position);
+  int write_speed(uint16_t speed);
+  int write_id(uint8_t id);
+  int write_torque_enable(bool enable);
+  int write_return_delay_time(uint8_t delay_2us);
   int read_temperature();
   int read_position();
 
@@ -69,11 +86,27 @@ public:
   static const uint8_t MEM_MOVING                = 46;     // 1       R
   static const uint8_t MEM_LOCK                  = 47;     // 1       RW
   static const uint8_t MEM_PUNCH                 = 48;     // 2       RW
+
+  // Communication Errors
+  int ERR_NO_RESPONSE         = -1;
+  int ERR_INCOMPLETE_RESPONSE = -2;
+  int ERR_INVALID_HEADER      = -3;
+  int ERR_INVALID_LENGTH      = -4;
+  int ERR_CHECKSUM_MISMATCH   = -5;
+  int ERR_ID_MISMATCH         = -6;
+
+  struct Status {
+    int communicationError;
+    AX12StatusError statusError;
+    uint16_t data;
+  };
 };
 
 #define MODE_TX (false)
 #define MODE_RX (true)
 
 #define MESSAGE_HEADER _u(0xFF)
+
+#define RX_BUFFER_SIZE 16
 
 #endif
