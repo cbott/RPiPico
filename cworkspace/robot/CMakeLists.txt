@@ -1,5 +1,6 @@
 add_executable(robot
   robot.cpp
+  robotlib.cpp
   AX12.cpp
 )
 

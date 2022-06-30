@@ -19,16 +19,24 @@ union AX12StatusError {
   } error_components;
 };
 
+/**
+ * Interface class for DYNAMIXEL AX-12 servo line
+ *
+ * See https://emanual.robotis.com/docs/en/dxl/ax/ax-12a
+ */
 class AX12 {
 private:
   uart_inst_t *device_uart;
   uint8_t device_id;
   uint device_rxpin;
+
+  int send_instruction_core(uint8_t instruction, uint8_t params[], uint8_t n_params);
   int send_instruction(uint8_t instruction, uint8_t params[], uint8_t n_params);
 
 public:
   AX12(uart_inst_t *uart, uint8_t id, uint rxpin);
   AX12StatusError device_status_error;
+  uint32_t error_counter;
 
   int write_led_status(bool status);
   int write_position(uint16_t position);
@@ -94,12 +102,6 @@ public:
   int ERR_INVALID_LENGTH      = -4;
   int ERR_CHECKSUM_MISMATCH   = -5;
   int ERR_ID_MISMATCH         = -6;
-
-  struct Status {
-    int communicationError;
-    AX12StatusError statusError;
-    uint16_t data;
-  };
 };
 
 #define MODE_TX (false)
