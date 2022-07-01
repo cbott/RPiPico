@@ -35,8 +35,7 @@ int main(){
   AX12 servo2(UART_ID, 0x2, DIRECTION_PIN);
   AX12 servo3(UART_ID, 0x3, DIRECTION_PIN);
   AX12 servo4(UART_ID, 0x4, DIRECTION_PIN);
-
-  Robot(&servo1, &servo2, &servo3, &servo4);
+  Robot robert(&servo1, &servo2, &servo3, &servo4);
 
   sleep_ms(10);
   // Clear out any junk we have in the UART buffer
@@ -45,6 +44,9 @@ int main(){
   // Main robot control
   /////////////////////////////////////////////////////////////////////////////
   while(1){
-
+    robert.set_position(20, 20, 20);
+    sleep_ms(10000);
+    robert.set_position(-20, 20, 20);
+    sleep_ms(10000);
   }
 }

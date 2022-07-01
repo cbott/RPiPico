@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <iostream>
 #include <math.h>
 #include "AX12.h"
 #include "robotlib.h"
@@ -13,145 +14,186 @@
 // coordinate = xyz (cartesian) coordinates
 // value = raw servo 0-1023 position
 
-Robot::Robot(AX12 * servo1, AX12 * servo2, AX12 * servo3, AX12 * servo4){
-  joints[1] = servo1;
-  joints[2] = servo2;
-  joints[3] = servo3;
-  joints[4] = servo4;
-
+Robot::Robot(AX12 *servo1, AX12 *servo2, AX12 *servo3, AX12 *servo4)
+    : prev_angles{M_PI_2, 2.0, -M_PI_2, -M_PI_2},
+      joints{servo1, servo2, servo3, servo4}
+{
+  // Initialize servo speed and angle limits
   for(int jointnum=0; jointnum<NUMJOINTS; ++jointnum){
     joints[jointnum]->write_cw_limit(JOINT_LIMITS[jointnum][0]);
     joints[jointnum]->write_ccw_limit(JOINT_LIMITS[jointnum][1]);
     joints[jointnum]->write_speed(100);
   }
+
+  // Move servos to known starting position
+  set_joint_angles(prev_angles);
 }
 
-// class Robot:
-//     def __init__(self, servo1: AX12, servo2: AX12, servo3: AX12, servo4: AX12) -> None:
-//         self.prev_angles = Pose(pi/2, 2, -pi/2, -pi/2)
-//         self.set_joint_angles(self.prev_angles)
+/**
+ * Set joint positions directly as Servo value
+ *
+ * @param values array of joint values to set
+ */
+void Robot::set_joint_values(uint16_t values[]){
+  // TODO: Add bounds checking or read error flag after write
+  for(int i=0; i < NUMJOINTS; ++i){
+    joints[i]->write_position((uint16_t) values[i]);
+  }
+}
 
-//     def set_joint_value(self, joint_num: int, position: int) -> None:
-//         """ Set joint position directly as Servo value, after rounding to nearest int """
-//         # TODO: Add bounds checking or read error flag after write
-//         # maybe write_position needs to return a bool and we pass that along?
-//         self.joints[joint_num].write_position(position)
-//         # TODO: find a way to cleanly merge with next method, maybe passing None for a list value skips it?
+/**
+ * Set joint angles in radians
+ *
+ * @param angles array of joint angles to set (radians)
+ * @param speed maximum speed for any joint, scale slower joints proportionally
+ * @return whether specified angles can be set within physical joint limits
+ */
+bool Robot::set_joint_angles(float angles[], int speed){
+  // Determine motion speeds
+  // TODO: should we make a standard "angle list" struct?
+  float deltas[4];
+  float max_delta = 0;
+  for(int i=0; i < NUMJOINTS; ++i){
+    float d = abs(angles[i] - prev_angles[i]);
+    deltas[i] = d;
+    if(d > max_delta) max_delta = d;
+  }
+  if(max_delta > 0){
+    for(int joint_num = 0; joint_num < NUMJOINTS; ++joint_num){
+      // TODO: verify type casting here
+      joints[joint_num]->write_speed((uint16_t) (speed * deltas[joint_num] / max_delta));
+    }
+  }
+  for(int i=0; i < NUMJOINTS; ++i){
+    prev_angles[i] = angles[i];
+  }
 
-//     def set_joint_values(self, values: list) -> None:
-//         # TODO: set speeds here too? Probably not but then maybe a standalone speed setting method?
-//         for i in range(len(self.joints)):
-//             self.set_joint_value(i, values[i])
+  // Convert angle to servo counts
+  // TODO: determine if 0.29 is accurate
+  float COUNTS_PER_RADIAN = 197.571654; // 0.29 degrees per count
+  uint16_t values[NUMJOINTS] = {
+    (uint16_t) lround((angles[0] * COUNTS_PER_RADIAN) + 201),
+    (uint16_t) lround(822 - (angles[1] * COUNTS_PER_RADIAN)),  // Or (angles[1] * COUNTS_PER_RADIAN) + 201 if we fix servo direction
+    (uint16_t) lround(512 - (angles[2] * COUNTS_PER_RADIAN)),  // Or (angles[2] * COUNTS_PER_RADIAN) + 512
+    (uint16_t) lround(512 - (angles[3] * COUNTS_PER_RADIAN))   // Or (angles[3] * COUNTS_PER_RADIAN) + 512
+  };
 
-//     def set_joint_angles(self, angles: Pose, speed: int = 100) -> bool:
-//         """ Set angles in radians """
-//         # Determine motion speeds
-//         # TODO: should we make a standard "angle list" type to pass around? Probably not but could still hold in a list
-//         n = len(angles)  # TODO: should use class constant num joints
-//         deltas = [abs(angles[i] - self.prev_angles[i]) for i in range(n)]
-//         max_delta = max(deltas)
-//         if max_delta > 0:
-//             for joint_num in range(n):
-//                 self.joints[joint_num].write_speed(int(speed * deltas[joint_num] / max_delta))
-//         self.prev_angles = angles
+  // Check calculated values against absolute physical limits
+  for(int i=0; i < NUMJOINTS; ++i){
+    if(values[i] < JOINT_LIMITS[i][0] || values[i] > JOINT_LIMITS[i][1]){
+      return false;
+    }
+  }
 
-//         # Convert angle to servo counts
-//         # TODO: determine if 0.29 is accurate
-//         COUNTS_PER_RADIAN = 197.571654  # 0.29 degrees per count
-//         values = [
-//             (angles.theta0 * COUNTS_PER_RADIAN) + 201,
-//              822 - (angles.theta1 * COUNTS_PER_RADIAN),  # Or (angles.theta1 * COUNTS_PER_RADIAN) + 201 if we fix servo direction
-//              512 - (angles.theta2 * COUNTS_PER_RADIAN),  # Or (angles.theta2 * COUNTS_PER_RADIAN) + 512
-//              512 - (angles.theta3 * COUNTS_PER_RADIAN)  # Or (angles.theta3 * COUNTS_PER_RADIAN) + 512
-//         ]
-//         values = [int(round(p, 0)) for p in values]
+  set_joint_values(values);
+  return true;
+}
 
-//         for joint in range(self.NUM_JOINTS):
-//             limits = self.JOINT_LIMITS[joint]
-//             if not limits[0] <= values[joint] <= limits[1]:
-//                 return False
+/**
+ * Move the end effector to the specified cartesian coordinates
+ *
+ * @param x X coordinate [mm]
+ * @param y Y coordinate [mm]
+ * @param Z Z coordinate [mm]
+ * @param end_angle desired angle of the end effector relative to horizontal, in radians
+ * @param invert_base set to True to "reach over backward" to hit the specified location
+ * @param invert_elbow set to True to reach the specified locaton with inverted elbow geometry
+ * @param speed maximum joint speed, servo units
+ * @return True if position is set, False if position is unachievable
+ */
+bool Robot::set_position(float x, float y, float z, float end_angle, bool invert_base, bool invert_elbow, int speed){
+  float angles[4];
+  bool valid = inverse_kinematics(angles, x, y, z, end_angle, invert_base, invert_elbow);
+  if(!valid){
+    std::cout << "Unable to calculate valid solution for requested position " << x << " " << y << " " << z << std::endl;
+    return false;
+  }
 
-//         self.set_joint_values(values)
-//         return True
+  std::cout << "Setting joint angles of ";
+  std::cout << angles[0] * 180.0 / M_PI;
+  std::cout << angles[1] * 180.0 / M_PI;
+  std::cout << angles[2] * 180.0 / M_PI;
+  std::cout << angles[3] * 180.0 / M_PI << std::endl;
 
-//     @classmethod
-//     def inverse_kinematics(cls, x: float, y: float, z:float, end_angle: float = 0, invert_base: bool = False, invert_elbow: bool = False) -> Pose:
-//         """ Determine necessary joint angles to reach a position """
-//         # Solve for joint 0 angle
-//         theta0 = atan2(y, x)
-//         if invert_base:
-//             # When we want to "reach over backwards" the base points the opposite direction of the desired point
-//             theta0 += pi
-//         # Constrain base to the valid servo range of -pi/3 to 8pi/6
-//         # We may still end up in an invalid range, caller must ensure this is not the case
-//         if theta0 < -pi/3:
-//             theta0 += 2*pi
-//         if theta0 > 8*pi/6:
-//             theta0 -= 2*pi
+  return set_joint_angles(angles, speed);
+}
 
-//         # Translate end effector coordinates to joint 3 coordinates
-//         d_z = cls.L3 * sin(end_angle)
-//         d_r = cls.L3 * cos(end_angle)
-//         x = x - d_r * cos(theta0)
-//         y = y - d_r * sin(theta0)
-//         z = z - d_z
+/**
+ * Determine necessary joint angles to reach a position
+ *
+ * @param result Result array of 4 angles (radians) to be filled in with calculated pose
+ * @param x Target x coordinate (mm)
+ * @param y Target y coordinate (mm)
+ * @param z Target z coordinate (mm)
+ * @param end_angle Target angle of end effector relative to horizontal (degrees)
+ * @param invert_base Reach over backward
+ * @param invert_elbow Position elbow joint with opposite concavity
+ * @return true if requested angle is achievable, false if it is not
+ */
+bool Robot::inverse_kinematics(float result[], float x, float y, float z,
+                               float end_angle, bool invert_base, bool invert_elbow){
+  // Solve for joint 0 angle
+  float theta0 = atan2(y, x);
+  if(invert_base){
+    // When we want to "reach over backwards" the base points the opposite direction of the desired point
+    theta0 += M_PI;
+  }
+  // Constrain base to the valid servo range of -pi/3 to 8pi/6
+  // We may still end up in an invalid range, caller must ensure this is not the case
+  if(theta0 < -M_PI/3.0){
+    theta0 += 2*M_PI;
+  }
+  if(theta0 > 8*M_PI/6){
+    theta0 -= 2*M_PI;
+  }
 
-//         # Solve for joint 2 angle
-//         dist_squared = x**2 + y**2 + z**2
-//         # solve for cos(theta2) using law of cosines
-//         cos_theta2 = (dist_squared - cls.L1**2 - cls.L2**2) / (2 * cls.L1 * cls.L2)
-//         if not -1 <= cos_theta2 <= 1:
-//             raise ValueError("Target position {} not achievable".format((x, y, z)))
-//         sin_theta2 = -(1 - cos_theta2**2)**0.5
-//         if invert_elbow:
-//             sin_theta2 *= -1
-//         theta2 = atan2(sin_theta2, cos_theta2)
+  // Translate end effector coordinates to joint 3 coordinates
+  float d_z = L3 * sin(end_angle);
+  float d_r = L3 * cos(end_angle);
+  x = x - d_r * cos(theta0);
+  y = y - d_r * sin(theta0);
+  z = z - d_z;
 
-//         # Solve for joint 1 angle
-//         r = (x**2 + y**2)**0.5
-//         alpha = atan2(z, r)
-//         beta = atan2(cls.L2 * sin(theta2), cls.L2 * cos(theta2) + cls.L1)
-//         theta1 = alpha - beta
+  // Solve for joint 2 angle
+  float dist_squared = pow(x, 2) + pow(y, 2) + pow(z, 2);
+  // Solve for cos(theta2) using law of cosines
+  float cos_theta2 = (dist_squared - pow(L1, 2) - pow(L2, 2)) / (2.0 * L1 * L2);
+  if(cos_theta2 < -1 || cos_theta2 > 1){
+    // Position not achievable
+    return false;
+  }
+  float sin_theta2 = -pow((1.0 - pow(cos_theta2, 2)), 0.5);
+  if(invert_elbow){
+    sin_theta2 *= -1;
+  }
+  float theta2 = atan2(sin_theta2, cos_theta2);
 
-//         # Make corrections for flipped base
-//         if invert_base:
-//             # Base has been set to face away from the target point, reflect remaining joints about z-r plane
-//             theta1 = pi - theta1
-//             theta2 *= -1
+  // Solve for joint 1 angle
+  float r = pow((pow(x, 2) + pow(y, 2)), 0.5);
+  float alpha = atan2(z, r);
+  float beta = atan2(L2 * sin(theta2), L2 * cos(theta2) + L1);
+  float theta1 = alpha - beta;
 
-//         # Solve for joint 3 angle
-//         # TODO: make this play nice with inverted base
-//         theta3 = end_angle - theta1 - theta2
-//         # TODO: do this with mod math
-//         if theta3 < -pi:
-//             theta3 += 2*pi
-//         if theta3 > pi:
-//             theta3 -= 2*pi
+  // Make corrections for flipped base
+  if(invert_base){
+    // Base has been set to face away from the target point, reflect remaining joints about z-r plane
+    theta1 = M_PI - theta1;
+    theta2 *= -1;
+  }
+  // Solve for joint 3 angle
+  // TODO: make this play nice with inverted base
+  float theta3 = end_angle - theta1 - theta2;
+  // TODO: do this with mod math
+  if(theta3 < -M_PI){
+    theta3 += 2.0 * M_PI;
+  }
+  if(theta3 > M_PI){
+    theta3 -= 2.0 * M_PI;
+  }
 
-//         return Pose(theta0, theta1, theta2, theta3)
-
-//     @classmethod
-//     def numerical_ik_solver(cls):
-//         pass
-
-//     def disable_torque(self) -> None:
-//         for joint in self.joints:
-//             joint.write_torque_enable(False)
-
-//     def get_joint_values(self) -> list:
-//         return [joint.read_position() for joint in self.joints]
-
-//     def set_position(self, x: float, y: float, z:float, end_angle: float = 0, invert_base: bool = False, invert_elbow: bool = False, speed: int = 100) -> bool:
-//         """ Move the end effector to the specified cartesian coordinates
-
-//         end_angle: desired angle of the end effector relative to horizontal, in radians
-//         invert_base: set to True to "reach over backward" to hit the specified location
-//         invert_elbow: set to True to reach the specified locaton with inverted elbow geometry
-//         speed: maximum joint speed, servo units
-
-//         returns: True if position is set, False if position is unachievable
-//         """
-//         angles = self.inverse_kinematics(x, y, z, end_angle, invert_base, invert_elbow)
-//         print('Setting joint angles of {}, {}, {}, {} degrees'.format(angles.theta0*180/pi, angles.theta1*180/pi, angles.theta2*180/pi, angles.theta3*180/pi))
-//         return self.set_joint_angles(angles, speed)
-
+  result[0] = theta0;
+  result[1] = theta1;
+  result[2] = theta2;
+  result[3] = theta3;
+  return true;
+}

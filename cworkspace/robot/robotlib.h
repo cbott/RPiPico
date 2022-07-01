@@ -6,10 +6,7 @@
 
 class Robot {
 private:
-  // TODO: is this nonsense or does array of pointers to objects make sense?
-  AX12* joints[NUMJOINTS];
-  // TODO: static?
-  const int JOINT_LIMITS[NUMJOINTS][2] = {
+  static constexpr int JOINT_LIMITS[NUMJOINTS][2] = {
         {0, 1023},
         {200, 830},
         {45, 1000},
@@ -20,8 +17,17 @@ private:
   static const int L2 = 115;
   static const int L3 = 58;
 
+  // Instance variables
+  AX12 *joints[NUMJOINTS];
+  float prev_angles[NUMJOINTS];
+
 public:
-  Robot(AX12 * servo1, AX12 * servo2, AX12 * servo3, AX12 * servo4);
+  Robot(AX12 *servo1, AX12 *servo2, AX12 *servo3, AX12 *servo4);
+
+  void set_joint_values(uint16_t values[]);
+  bool set_joint_angles(float angles[], int speed = 100);
+  bool set_position(float x, float y, float z, float end_angle = 0, bool invert_base = false, bool invert_elbow = false, int speed = 100);
+  bool inverse_kinematics(float result[], float x, float y, float z, float end_angle = 0, bool invert_base = false, bool invert_elbow = false);
 };
 
 #endif
