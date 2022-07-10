@@ -2,6 +2,7 @@
 #ifndef AX12_H
 #define AX12_H
 
+// TODO: this would be better in a utilities file, unless we want to use it before each instruction
 size_t read_all_available_data(uart_inst_t *uart, uint8_t *dst, size_t max_len);
 
 // Error codes (from https://emanual.robotis.com/docs/en/dxl/protocol1/)
@@ -38,6 +39,7 @@ public:
   AX12StatusError device_status_error;
   uint32_t error_counter;
 
+  // Control Methods (communicates to Dynamixel)
   int write_led_status(bool status);
   int write_position(uint16_t position);
   int write_cw_limit(uint16_t position);
@@ -48,6 +50,9 @@ public:
   int write_return_delay_time(uint8_t delay_2us);
   int read_temperature();
   int read_position();
+
+  // Software Methods (no communication to Dynamixel)
+  uint8_t get_id();
 
   // Instructions
   static const uint8_t CMD_PING          = 0X01;
@@ -96,12 +101,12 @@ public:
   static const uint8_t MEM_PUNCH                 = 48;     // 2       RW
 
   // Communication Errors
-  int ERR_NO_RESPONSE         = -1;
-  int ERR_INCOMPLETE_RESPONSE = -2;
-  int ERR_INVALID_HEADER      = -3;
-  int ERR_INVALID_LENGTH      = -4;
-  int ERR_CHECKSUM_MISMATCH   = -5;
-  int ERR_ID_MISMATCH         = -6;
+  static const int ERR_NO_RESPONSE         = -1;
+  static const int ERR_INCOMPLETE_RESPONSE = -2;
+  static const int ERR_INVALID_HEADER      = -3;
+  static const int ERR_INVALID_LENGTH      = -4;
+  static const int ERR_CHECKSUM_MISMATCH   = -5;
+  static const int ERR_ID_MISMATCH         = -6;
 };
 
 #define MODE_TX (false)

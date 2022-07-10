@@ -31,6 +31,7 @@ AX12::AX12(uart_inst_t *uart, uint8_t id, uint rxpin){
   device_uart = uart;
   device_id = id;
   device_rxpin = rxpin;
+  error_counter = 0;
 }
 
 int AX12::send_instruction_core(uint8_t instruction, uint8_t params[], uint8_t n_params){
@@ -86,7 +87,6 @@ int AX12::send_instruction_core(uint8_t instruction, uint8_t params[], uint8_t n
   // First provide time for AX12 to respond - maximum delay is 508us, plus some margin
   if(!uart_is_readable_within_us(device_uart, 1000)){
     // No response received
-    gpio_put(device_rxpin, MODE_TX);
     return ERR_NO_RESPONSE;
   }
 
@@ -95,7 +95,6 @@ int AX12::send_instruction_core(uint8_t instruction, uint8_t params[], uint8_t n
   // 80 bits at 1 Mbaud is 80us, but life isn't that simple so 250us is based on testing
   sleep_us(250);
   size_t bytes_read = read_all_available_data(device_uart, rx_buffer, RX_BUFFER_SIZE);
-  gpio_put(device_rxpin, MODE_TX);
   if(bytes_read < 6){ // MIN_MSG_LEN
     return ERR_INCOMPLETE_RESPONSE;
   }
@@ -149,7 +148,7 @@ int AX12::send_instruction(uint8_t instruction, uint8_t params[], uint8_t n_para
   int result = send_instruction_core(instruction, params, n_params);
 
   if(result < 0){
-    std::cout << "RX error " << result << " ID: " << device_id << " error count: " <<  ++error_counter << std::endl;
+    std::cout << "RX error " << result << " ID: " << unsigned(device_id) << " error count: " <<  ++error_counter << std::endl;
   }
 
   return result;
@@ -258,4 +257,13 @@ int AX12::read_temperature(){
 int AX12::read_position(){
   uint8_t param_list[] = {MEM_PRESENT_POSITION, 0x2};
   return send_instruction(CMD_READ, param_list, 2);
+}
+
+/**
+ * Getter method for object ID attribute
+ *
+ * @return device_id for this AX12 object
+ */
+uint8_t AX12::get_id(){
+  return device_id;
 }

@@ -19,9 +19,17 @@ Robot::Robot(AX12 *servo1, AX12 *servo2, AX12 *servo3, AX12 *servo4)
       joints{servo1, servo2, servo3, servo4}
 {
   // Initialize servo speed and angle limits
+  // Doing this in 3 sections because we seem to get comm errors when setting
+  // two things in a row on the same servo
   for(int jointnum=0; jointnum<NUMJOINTS; ++jointnum){
     joints[jointnum]->write_cw_limit(JOINT_LIMITS[jointnum][0]);
+  }
+  sleep_ms(20);
+  for(int jointnum=0; jointnum<NUMJOINTS; ++jointnum){
     joints[jointnum]->write_ccw_limit(JOINT_LIMITS[jointnum][1]);
+  }
+  sleep_ms(20);
+  for(int jointnum=0; jointnum<NUMJOINTS; ++jointnum){
     joints[jointnum]->write_speed(100);
   }
 
@@ -37,7 +45,8 @@ Robot::Robot(AX12 *servo1, AX12 *servo2, AX12 *servo3, AX12 *servo4)
 void Robot::set_joint_values(uint16_t values[]){
   // TODO: Add bounds checking or read error flag after write
   for(int i=0; i < NUMJOINTS; ++i){
-    joints[i]->write_position((uint16_t) values[i]);
+    std::cout << "Setting Joint " << i << " to value " << values[i] << std::endl;
+    joints[i]->write_position(values[i]);
   }
 }
 
@@ -61,7 +70,9 @@ bool Robot::set_joint_angles(float angles[], int speed){
   if(max_delta > 0){
     for(int joint_num = 0; joint_num < NUMJOINTS; ++joint_num){
       // TODO: verify type casting here
-      joints[joint_num]->write_speed((uint16_t) (speed * deltas[joint_num] / max_delta));
+      uint16_t joint_speed = (uint16_t) (speed * deltas[joint_num] / max_delta);
+      std::cout << "Setting Joint " << joint_num << " to speed " << joint_speed << std::endl;
+      joints[joint_num]->write_speed(joint_speed);
     }
   }
   for(int i=0; i < NUMJOINTS; ++i){
@@ -81,6 +92,7 @@ bool Robot::set_joint_angles(float angles[], int speed){
   // Check calculated values against absolute physical limits
   for(int i=0; i < NUMJOINTS; ++i){
     if(values[i] < JOINT_LIMITS[i][0] || values[i] > JOINT_LIMITS[i][1]){
+      std::cout << "Setting Joint " << i << " to " << values[i] << " violates bounds " << JOINT_LIMITS[i][0] << ", " << JOINT_LIMITS[i][1] << std::endl;
       return false;
     }
   }
@@ -110,9 +122,9 @@ bool Robot::set_position(float x, float y, float z, float end_angle, bool invert
   }
 
   std::cout << "Setting joint angles of ";
-  std::cout << angles[0] * 180.0 / M_PI;
-  std::cout << angles[1] * 180.0 / M_PI;
-  std::cout << angles[2] * 180.0 / M_PI;
+  std::cout << angles[0] * 180.0 / M_PI << ", ";
+  std::cout << angles[1] * 180.0 / M_PI << ", ";
+  std::cout << angles[2] * 180.0 / M_PI << ", ";
   std::cout << angles[3] * 180.0 / M_PI << std::endl;
 
   return set_joint_angles(angles, speed);
@@ -140,11 +152,11 @@ bool Robot::inverse_kinematics(float result[], float x, float y, float z,
   }
   // Constrain base to the valid servo range of -pi/3 to 8pi/6
   // We may still end up in an invalid range, caller must ensure this is not the case
-  if(theta0 < -M_PI/3.0){
-    theta0 += 2*M_PI;
+  if(theta0 < -M_PI / 3.0){
+    theta0 += 2.0 * M_PI;
   }
-  if(theta0 > 8*M_PI/6){
-    theta0 -= 2*M_PI;
+  if(theta0 > 8.0 * M_PI / 6.0){
+    theta0 -= 2.0 * M_PI;
   }
 
   // Translate end effector coordinates to joint 3 coordinates
