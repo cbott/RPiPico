@@ -28,6 +28,7 @@ public:
   bool set_joint_angles(float angles[], int speed = 100);
   bool set_position(float x, float y, float z, float end_angle = 0, bool invert_base = false, bool invert_elbow = false, int speed = 100);
   bool inverse_kinematics(float result[], float x, float y, float z, float end_angle = 0, bool invert_base = false, bool invert_elbow = false);
+  void run_interactive(uart_inst_t *uart);
 };
 
 #endif

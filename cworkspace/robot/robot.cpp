@@ -56,6 +56,7 @@ void print_status(AX12 servo){
   std::cout << std::endl;
 }
 
+
 int main(){
   stdio_init_all();
 
@@ -85,15 +86,17 @@ int main(){
 
   // Main robot control
   /////////////////////////////////////////////////////////////////////////////
-  while(1){
-    if(!robert.set_position(50, 100, 100, -1.57, false, false, 150)){
-      std::cout << "Failed to set (50, 100, 100)" << std::endl;
-    }
-    sleep_ms(3000);
-    if(!robert.set_position(-50, 100, 100, 1.57, false, false, 150)){
-      std::cout << "Failed to set (-50, 100, 100)" << std::endl;
-    }
-    sleep_ms(3000);
-  }
+  robert.run_interactive(uart0);
+
+  // while(1){
+  //   if(!robert.set_position(50, 100, 100, -1.57, false, false, 150)){
+  //     std::cout << "Failed to set (50, 100, 100)" << std::endl;
+  //   }
+  //   sleep_ms(3000);
+  //   if(!robert.set_position(-50, 100, 100, 1.57, false, false, 150)){
+  //     std::cout << "Failed to set (-50, 100, 100)" << std::endl;
+  //   }
+  //   sleep_ms(3000);
+  // }
   fault();
 }

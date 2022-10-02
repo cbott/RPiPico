@@ -19,7 +19,8 @@
     "cmake.buildBeforeRun": true,
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "files.associations": {
-        "gpio.h": "c"
+        "gpio.h": "c",
+        "iosfwd": "cpp"
     },
     "cortex-debug.variableUseNaturalFormat": false
 }

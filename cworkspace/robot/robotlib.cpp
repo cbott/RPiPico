@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdint>
+#include <sstream>
 #include <iostream>
 #include <math.h>
 #include "AX12.h"
@@ -44,6 +45,7 @@ Robot::Robot(AX12 *servo1, AX12 *servo2, AX12 *servo3, AX12 *servo4)
  */
 void Robot::set_joint_values(uint16_t values[]){
   // TODO: Add bounds checking or read error flag after write
+  // TODO: Should we be doing speed calculations here rather than when setting angles?
   for(int i=0; i < NUMJOINTS; ++i){
     std::cout << "Setting Joint " << i << " to value " << values[i] << std::endl;
     joints[i]->write_position(values[i]);
@@ -58,8 +60,8 @@ void Robot::set_joint_values(uint16_t values[]){
  * @return whether specified angles can be set within physical joint limits
  */
 bool Robot::set_joint_angles(float angles[], int speed){
-  // Determine motion speeds
   // TODO: should we make a standard "angle list" struct?
+  // Determine motion speeds
   float deltas[4];
   float max_delta = 0;
   for(int i=0; i < NUMJOINTS; ++i){
@@ -208,4 +210,86 @@ bool Robot::inverse_kinematics(float result[], float x, float y, float z,
   result[2] = theta2;
   result[3] = theta3;
   return true;
+}
+
+void Robot::run_interactive(uart_inst_t *uart){
+  // Interface with
+  // picocom /dev/ttyACM0 -b 115200 --echo --omap crcrlf
+  std::cout << "Enter Command" << std::endl;
+
+  // Option 1: the easy way
+  char cmd;
+  std::string line;
+
+  while(1){
+    std::getline(std::cin, line);
+    std::stringstream linestream(line);
+    if(!(linestream >> cmd)){
+      std::cout << "Invalid Command " << linestream.str() << std::endl;
+      continue;
+    }
+
+    if(cmd == 'H'){
+      std::cout << "Home" << std::endl;
+    }
+    else if(cmd == 'J'){
+      // TODO: Allow setting single joints
+      uint16_t j1, j2, j3, j4;
+      if(!(linestream >> j1 >> j2 >> j3 >> j4)){
+        std::cout << "Invalid Parameters" << std::endl;
+        continue;
+      }
+      std::cout << "Setting " << j1 << " " << j2 << " " << j3 << " " << j4 << std::endl;
+      uint16_t vals[] = {j1, j2, j3, j4};
+      set_joint_values(vals);
+    }
+    else if(cmd == 'G'){
+      int x, y, z;
+      if(!(linestream >> x >> y >> z)){
+        std::cout << "Invalid Parameters" << std::endl;
+        continue;
+      }
+      std::cout << "Setting " << x << " " << y << " " << z << std::endl;
+    }
+    else if(cmd == 'E'){
+      std::cout << "Errors" << std::endl;
+    }
+    else if(cmd == 'R'){
+      std::cout << "Read Position" << std::endl;
+      for(int i=0; i<NUMJOINTS; ++i){
+        std::cout << joints[i]->read_position() << " ";
+      }
+      std::cout << std::endl;
+    }
+    else {
+      std::cout << "\nUnrecognized command " << +cmd << std::endl;
+    }
+
+  }
+
+  // Option 2: Non-blocking inputs
+  // char c;
+  // char command_buffer[24];
+  // size_t buffer_loc = 0;
+
+
+  // while(1){
+
+  //   if(uart_is_readable(uart)){
+  //     c = uart_getc(uart);
+
+  //     if(c == '\n' || buffer_loc >= 23){
+  //       std::cout << "Buffer contents: ";
+  //       for(int i=0; i<buffer_loc; ++i){
+  //         std::cout << +command_buffer[i] << " ";
+  //       }
+  //       std::cout << std::endl;
+  //       buffer_loc = 0;
+  //     } else {
+  //       command_buffer[buffer_loc++] = c;
+  //     }
+
+  //   }
+
+  // }
 }
