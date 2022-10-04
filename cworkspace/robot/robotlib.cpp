@@ -234,6 +234,10 @@ void Robot::run_interactive(uart_inst_t *uart){
     }
     else if(cmd == 'J'){
       // TODO: Allow setting single joints
+      // This could be implemented like g-code, but that's a bit clunky
+      // J A<#> B<#> C<#> D<#>
+      // alternatively
+      // J - - # -
       uint16_t j1, j2, j3, j4;
       if(!(linestream >> j1 >> j2 >> j3 >> j4)){
         std::cout << "Invalid Parameters" << std::endl;
@@ -242,6 +246,20 @@ void Robot::run_interactive(uart_inst_t *uart){
       std::cout << "Setting " << j1 << " " << j2 << " " << j3 << " " << j4 << std::endl;
       uint16_t vals[] = {j1, j2, j3, j4};
       set_joint_values(vals);
+    }
+    else if(cmd == 'A'){
+      float a1, a2, a3, a4;
+      if(!(linestream >> a1 >> a2 >> a3 >> a4)){
+        std::cout << "Invalid Parameters" << std::endl;
+        continue;
+      }
+      uint16_t speed;
+      if(!(linestream >> speed)){
+        speed = DEFAULT_SPEED;
+      }
+      std::cout << "Setting " << a1 << " " << a2 << " " << a3 << " " << a4 << " " << speed << std::endl;
+      float vals[] = {a1, a2, a3, a4};
+      set_joint_angles(vals, speed);
     }
     else if(cmd == 'G'){
       int x, y, z;
@@ -252,7 +270,12 @@ void Robot::run_interactive(uart_inst_t *uart){
       std::cout << "Setting " << x << " " << y << " " << z << std::endl;
     }
     else if(cmd == 'E'){
+      // TODO: we could take an optional param to specify which
+      // joint we are interested in?
       std::cout << "Errors" << std::endl;
+      for(int i=0; i<NUMJOINTS; ++i){
+        std::cout << unsigned(joints[i]->device_status_error.error_byte) << std::endl;
+      }
     }
     else if(cmd == 'R'){
       std::cout << "Read Position" << std::endl;
@@ -266,30 +289,4 @@ void Robot::run_interactive(uart_inst_t *uart){
     }
 
   }
-
-  // Option 2: Non-blocking inputs
-  // char c;
-  // char command_buffer[24];
-  // size_t buffer_loc = 0;
-
-
-  // while(1){
-
-  //   if(uart_is_readable(uart)){
-  //     c = uart_getc(uart);
-
-  //     if(c == '\n' || buffer_loc >= 23){
-  //       std::cout << "Buffer contents: ";
-  //       for(int i=0; i<buffer_loc; ++i){
-  //         std::cout << +command_buffer[i] << " ";
-  //       }
-  //       std::cout << std::endl;
-  //       buffer_loc = 0;
-  //     } else {
-  //       command_buffer[buffer_loc++] = c;
-  //     }
-
-  //   }
-
-  // }
 }

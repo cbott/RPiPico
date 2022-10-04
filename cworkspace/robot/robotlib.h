@@ -3,6 +3,7 @@
 
 // Doing this as a define just so it's explicit where "4" is being used for this purpose
 #define NUMJOINTS 4
+#define DEFAULT_SPEED 100
 
 class Robot {
 private:
@@ -25,8 +26,8 @@ public:
   Robot(AX12 *servo1, AX12 *servo2, AX12 *servo3, AX12 *servo4);
 
   void set_joint_values(uint16_t values[]);
-  bool set_joint_angles(float angles[], int speed = 100);
-  bool set_position(float x, float y, float z, float end_angle = 0, bool invert_base = false, bool invert_elbow = false, int speed = 100);
+  bool set_joint_angles(float angles[], int speed = DEFAULT_SPEED);
+  bool set_position(float x, float y, float z, float end_angle = 0, bool invert_base = false, bool invert_elbow = false, int speed = DEFAULT_SPEED);
   bool inverse_kinematics(float result[], float x, float y, float z, float end_angle = 0, bool invert_base = false, bool invert_elbow = false);
   void run_interactive(uart_inst_t *uart);
 };
