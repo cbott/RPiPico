@@ -1,4 +1,7 @@
 **venv/
+__pycache__/
+*.dat
+*.pkl
 cworkspace/openocd/
 cworkspace/pico-examples/
 cworkspace/pico-sdk/

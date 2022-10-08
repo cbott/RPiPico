@@ -1,6 +1,7 @@
 from math import atan2, cos, pi, sin
-import numpy as np
 from typing import Tuple
+
+import numpy as np
 
 # Robot segment lengths [mm]
 ROBOT_L1 = 120
