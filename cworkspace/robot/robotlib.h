@@ -13,6 +13,10 @@ private:
         {45, 1000},
         {45, 1000}
   };
+
+  // (1023 counts / 300 degrees) * (180 degrees / PI radians)
+  static constexpr float COUNTS_PER_RADIAN = 195.3786;
+
   // Beam lengths [mm]
   static const int L1 = 120;
   static const int L2 = 115;

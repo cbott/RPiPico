@@ -8,7 +8,8 @@
     "python.analysis.typeCheckingMode": "basic",
     "python.analysis.extraPaths": [
         ".vscode/Pico-Stub/stubs",
-        ".vscode\\Pico-Stub\\stubs"
+        ".vscode\\Pico-Stub\\stubs",
+        "nnet/"
     ],
     "python.linting.pycodestyleEnabled": true
 }

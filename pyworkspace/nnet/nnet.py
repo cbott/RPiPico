@@ -116,26 +116,3 @@ class SimpleRobotNNet:
         self.network.eval()
         outputs = self.network(inputs)
         return outputs[0].tolist()
-
-
-# def test_nnet(network: nn.Module):
-#     network.eval()
-
-#     while 1:
-#         x = float(input('X: '))
-#         y = float(input('Y: '))
-#         z = float(input('Z: '))
-#         position = normalize_coordinates(torch.tensor([[x, y, z]]).float())
-#         (theta0, theta1, theta2) = network(position)[0].tolist()
-
-#         (real_x, real_y, real_z) = get_forward(theta0, theta1, theta2)
-#         dx = x - real_x
-#         dy = y - real_y
-#         dz = z - real_z
-
-#         error = (dx**2 + dy**2 + dz**2)**0.5
-
-#         print(f'Target position was ({x}, {y}, {z})')
-#         print(f'Nerual network recommends setting joint angles ({theta0}, {theta1}, {theta2})')
-#         print(f'These joint angles result in a position of ({real_x}, {real_y}, {real_z})')
-#         print(f'This is a cartesian error of {round(error, 4)} mm ({dx} in X, {dy} in Y, {dz} in Z)\n')

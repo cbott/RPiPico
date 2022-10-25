@@ -4,11 +4,14 @@ import pickle
 import random
 import sys
 from pathlib import Path
+from typing import Iterable
 
 import numpy as np
 
 import net_kinematics
 
+# TODO: These constants, scale() function, and maybe some kinematics constants might be better
+# suited for a dedicated constants file as they are used in several places
 JOINT_LIMITS = [
     (-1.017, 4.16),
     (-0.04, 3.148),
@@ -18,14 +21,16 @@ JOINT_LIMITS = [
 OUTPUT_SPACE = [
     (-200, 200),
     (0, 200),
-    (0 - net_kinematics.ROBOT_L3, 200 - net_kinematics.ROBOT_L3)
+    (0, 200)
 ]
 
 # Defines input and output value scaling to change physical values into NNet-friendly values
 SCALE_VALUES = True
-SCALE_MIN = -1
-SCALE_MAX = 1
-
+SCALED_RANGE = [
+    (-1.0, 1.0),
+    (-1.0, 1.0),
+    (-1.0, 1.0)
+]
 
 # def generate_position() -> tuple[list[float], list[float]]:
 #     """ Return a tuple of ([position], [angles]) for a random robot pose """
@@ -49,13 +54,14 @@ def generate_position_constrained() -> tuple[list[float], list[float]]:
         # Choose a random point in achievable space
         coordinates = [random.uniform(*limits) for limits in OUTPUT_SPACE]
         try:
-            theta0, theta1, theta2, _ = net_kinematics.get_inverse(coordinates[0], coordinates[1], coordinates[2], -np.pi / 2)
-            # Account for joint3 introducing offset
+            # Account for joint3 introducing offset in get_inverse
+            real_z = coordinates[2] - net_kinematics.ROBOT_L3
+            theta0, theta1, theta2, _ = net_kinematics.get_inverse(coordinates[0], coordinates[1], real_z, -np.pi / 2)
             angles = [theta0, theta1, theta2]
             for i in range(3):
                 if angles[i] < JOINT_LIMITS[i][0] or angles[i] > JOINT_LIMITS[i][1]:
                     raise ValueError
-            three_joint_coordinates = [coordinates[0], coordinates[1], coordinates[2] + net_kinematics.ROBOT_L3]
+            three_joint_coordinates = [coordinates[0], coordinates[1], coordinates[2]]
             break
 
         except ValueError:
@@ -65,19 +71,19 @@ def generate_position_constrained() -> tuple[list[float], list[float]]:
     return (three_joint_coordinates, angles)
 
 
-def scale_values(values: list[float], input_limits: list[tuple[float, float]], minimum: float, maximum: float) -> list[float]:
+def scale_values(values: Iterable[float], input_ranges: list[tuple[float, float]], output_ranges: list[tuple[float, float]]) -> list[float]:
     """
     Map provided values from "real" range to values between the requested minumum and maximum using a linear scaling
 
-    values: list of "real" values which have a range that falls within the corresponding element of input_limits
-    input_limits: list of tuples, each tuple representing the possible range of the corresponding coordinate
-    minimum: minimum resultant value after scaling
-    maximum: maximum resultant value after scaling
+    values: list of "real" values which have a range that falls within the corresponding element of input_ranges
+    input_ranges: list of tuples, each tuple representing the possible range of the corresponding coordinate
+    output_ranges: list of tuples, each tuple representing the range to scale that element to
     """
     result = []
     for i, value in enumerate(values):
-        (input_min, input_max) = input_limits[i]
-        new_value = (value - input_min) / (input_max - input_min) * (maximum - minimum) + minimum
+        (input_min, input_max) = input_ranges[i]
+        (output_min, output_max) = output_ranges[i]
+        new_value = (value - input_min) / (input_max - input_min) * (output_max - output_min) + output_min
         result.append(new_value)
     return result
 
@@ -90,8 +96,8 @@ def generate_position_samples(n_samples: int, save_file: Path) -> None:
     for i in range(n_samples):
         position = generate_position_constrained()
         if SCALE_VALUES:
-            p = scale_values(position[0], OUTPUT_SPACE, SCALE_MIN, SCALE_MAX)
-            a = scale_values(position[1], JOINT_LIMITS, SCALE_MIN, SCALE_MAX)
+            p = scale_values(position[0], OUTPUT_SPACE, SCALED_RANGE)
+            a = scale_values(position[1], JOINT_LIMITS, SCALED_RANGE)
             samples.append([p, a])
         else:
             samples.append(position)

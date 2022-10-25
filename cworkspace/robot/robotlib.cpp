@@ -82,8 +82,6 @@ bool Robot::set_joint_angles(float angles[], int speed){
   }
 
   // Convert angle to servo counts
-  // TODO: determine if 0.29 is accurate
-  float COUNTS_PER_RADIAN = 197.571654; // 0.29 degrees per count
   uint16_t values[NUMJOINTS] = {
     (uint16_t) lround((angles[0] * COUNTS_PER_RADIAN) + 201),
     (uint16_t) lround(822 - (angles[1] * COUNTS_PER_RADIAN)),  // Or (angles[1] * COUNTS_PER_RADIAN) + 201 if we fix servo direction
@@ -230,7 +228,11 @@ void Robot::run_interactive(uart_inst_t *uart){
     }
 
     if(cmd == 'H'){
+      // TODO: Needs to set speeds also, to act as a "reset"
+      // May wish to set speeds and Joint Values directly
       std::cout << "Home" << std::endl;
+      float vals[] = {M_PI_2, 2.0, -M_PI_2, -M_PI_2};
+      set_joint_angles(vals);
     }
     else if(cmd == 'J'){
       // TODO: Allow setting single joints
@@ -262,12 +264,17 @@ void Robot::run_interactive(uart_inst_t *uart){
       set_joint_angles(vals, speed);
     }
     else if(cmd == 'G'){
-      int x, y, z;
-      if(!(linestream >> x >> y >> z)){
+      float x, y, z, a;
+      if(!(linestream >> x >> y >> z >> a)){
         std::cout << "Invalid Parameters" << std::endl;
         continue;
       }
-      std::cout << "Setting " << x << " " << y << " " << z << std::endl;
+      uint16_t speed;
+      if(!(linestream >> speed)){
+        speed = DEFAULT_SPEED;
+      }
+      std::cout << "Setting " << x << " " << y << " " << z << " " << a << " " << speed << std::endl;
+      set_position(x, y, z, a, false, false, speed);
     }
     else if(cmd == 'E'){
       // TODO: we could take an optional param to specify which

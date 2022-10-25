@@ -3,6 +3,8 @@ Robot interface language loosely based on G-Code structure and implemented in ro
 
 This document describes the available commands.
 
+---
+
 ## J - Set Raw Joint Values
 ### Description
 Sets the 4 robot joint values in AX12 "steps" 0-1023
@@ -16,6 +18,8 @@ j0-j3: (uint) Value to set joint 0-3
 Set robot approximately to home position\
 `J 500 400 800 800`
 
+---
+
 ## H - Home
 ### Description
 Moves the robot to the home (default) pose
@@ -23,6 +27,8 @@ Moves the robot to the home (default) pose
 This command takes no parameters
 ### Usage
 `H`
+
+---
 
 ## A - Set Joint Angles
 ### Description
@@ -37,6 +43,8 @@ f: (uint) Optional feedrate which dictates the maximum speed for any joint, in A
 ### Examples
 Set the robot to approximately home position at three times the default speed\
 `A 1.57 2.0 -1.57 -1.57 300`
+
+---
 
 ## E - Print Errors
 ### Description
@@ -55,13 +63,21 @@ e3
 ```
 e0-3: Error status byte from joints 0-3, in order
 
+---
 
-## H - Home
+## G - Set Position
 ### Description
-### Usage
-### Examples
+Moves the end effector to a desired position in cartesian space, with a specified ground-relative angle.
 
-## H - Home
-### Description
+Maximum joint speed is controlled by the optional feedrate parameter, with individual joint speeds set so that all joints complete motion at the same time.
 ### Usage
+`G <x> <y> <z> <a> [<f>]`
+
+x: (float) Target X coordinate in milimeters\
+y: (float) Target Y coordinate in milimeters\
+z: (float) Target Z coordinate in milimeters\
+a: (float) Target ground-relative end effector angle in radians\
+f: (uint) Optional feedrate which dictates the maximum speed for any joint, in AX12 speed units with range 0-1023. Defaults to 100.
 ### Examples
+Move to 100mm in all axes, with the end effector pointing up, at a slow speed\
+`G 100 100 100 1.57 50`
