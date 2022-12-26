@@ -1,5 +1,6 @@
 # nnet.py
 # Core logic for 3-DOF robot arm control neural network
+from abc import ABC, abstractmethod
 import pickle
 from pathlib import Path
 
@@ -19,7 +20,8 @@ def load_sample_file(filename: str | Path) -> tuple[torch.Tensor, torch.Tensor]:
     return (positions, angles)
 
 
-class SimpleRobotNNet:
+class BaseRobotNNet(ABC):
+    """ Abstract base class to build robot neural network classes on """
     n_inputs = 3  # Cartesian X/Y/Z coordinates
     n_outputs = 3  # Base, shoulder, and elbow joints
     n_hidden1 = 196
@@ -27,7 +29,7 @@ class SimpleRobotNNet:
     learning_rate = 0.1
 
     def __init__(self, network: None | nn.Module = None):
-        """ Initialize the SimpleRobotNNet
+        """ Initialize the Robot Neural Network
 
         network: if provided, pytorch nn module to be used
         """
@@ -52,6 +54,35 @@ class SimpleRobotNNet:
             pickle.dump(self.network, f)
         print(f'Saved nnet to file {save_file}')
 
+    def compute_joints(self, x: float, y: float, z: float) -> list[float]:
+        """ Use neural network to compute joint angles for a given target coordinate """
+        inputs = torch.tensor([[x, y, z]]).float()
+        self.network.eval()
+        outputs = self.network(inputs)
+        return outputs[0].tolist()
+
+    @abstractmethod
+    def train(self, files: list[Path] | list[str]) -> tuple[float, float]:
+        """ Train 1 epoch
+
+        files: list of file paths, pickle files with data to train on
+
+        returns total training loss across all training data, number of samples trained on
+        """
+        ...
+
+    @abstractmethod
+    def test(self, files: list[Path] | list[str]) -> tuple[float, float]:
+        """ Evaluate network
+
+        files: list of file paths, pickle files with data to test on
+
+        returns total testing loss across all samples, number of samples tested on
+        """
+        ...
+
+
+class SimpleRobotNNet(BaseRobotNNet):
     def train(self, files: list[Path] | list[str]) -> tuple[float, float]:
         """ Train 1 epoch
 
@@ -67,7 +98,7 @@ class SimpleRobotNNet:
 
         # TODO: Need to evaluate if it actually makes sense to split into multiple files
         # or if we should just accept a single big file and train on that
-        # Also need to evaluate taking the data directly to avoid repead unpickle operations
+        # Also need to evaluate taking the data directly to avoid repeat unpickle operations
         for training_file in files:
             target_position, true_angles = load_sample_file(training_file)
 
@@ -110,9 +141,69 @@ class SimpleRobotNNet:
         # print(f'tested on {test_samples} samples | average loss: {test_loss / test_samples}')
         return test_loss, test_samples
 
-    def compute_joints(self, x: float, y: float, z: float) -> list[float]:
-        """ Use nerual network to compute joint angles for a given target coordinate """
-        inputs = torch.tensor([[x, y, z]]).float()
+
+class UnsupervisedRobotNNet(BaseRobotNNet):
+    def train(self, files: list[Path] | list[str]) -> tuple[float, float]:
+        """ Train 1 epoch
+
+        files: list of file paths, pickle files with data to train on
+
+        returns total training loss across all training data, number of samples trained on
+        """
+        # TODO: implement
+        # This robot would have an internal model of the forward kinematics
+        # training data would consist of target positions only, not target angles
+        # model takes positions, outputs angles
+        # train method would run output angles through forward kinematics to get actual position
+        # feed this error back through model
+
+        # Set to training mode
+        self.network.train()
+
+        total_loss = 0
+        total_samples = 0
+
+        # TODO: Need to evaluate if it actually makes sense to split into multiple files
+        # or if we should just accept a single big file and train on that
+        # Also need to evaluate taking the data directly to avoid repeat unpickle operations
+        for training_file in files:
+            target_position, true_angles = load_sample_file(training_file)
+
+            # Make preditictions
+            predictions = self.network(target_position)
+            loss = self.loss_function(predictions, true_angles)
+
+            # Back propogation
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            # Note performance
+            total_loss += loss.item() * true_angles.size(0)
+            total_samples += true_angles.size(0)
+
+        # print(f'trained on {total_samples} samples | average loss: {total_loss / total_samples}')
+        return total_loss, total_samples
+
+    def test(self, files: list[Path] | list[str]) -> tuple[float, float]:
+        """ Evaluate network
+
+        files: list of file paths, pickle files with data to test on
+
+        returns total testing loss across all samples, number of samples tested on
+        """
+        # Set to testing mode
         self.network.eval()
-        outputs = self.network(inputs)
-        return outputs[0].tolist()
+        test_loss = 0
+        test_samples = 0
+        with torch.no_grad():
+            for testing_file in files:
+                target_position, true_angles = load_sample_file(testing_file)
+                predictions = self.network(target_position)
+                loss = self.loss_function(predictions, true_angles)
+
+                test_loss += loss.item() * true_angles.size(0)
+                test_samples += true_angles.size(0)
+
+        # print(f'tested on {test_samples} samples | average loss: {test_loss / test_samples}')
+        return test_loss, test_samples

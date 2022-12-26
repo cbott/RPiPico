@@ -4,33 +4,11 @@ import pickle
 import random
 import sys
 from pathlib import Path
-from typing import Iterable
+from settings import *
 
 import numpy as np
 
 import net_kinematics
-
-# TODO: These constants, scale() function, and maybe some kinematics constants might be better
-# suited for a dedicated constants file as they are used in several places
-JOINT_LIMITS = [
-    (-1.017, 4.16),
-    (-0.04, 3.148),
-    (-2.469, 2.36)
-]
-
-OUTPUT_SPACE = [
-    (-200, 200),
-    (0, 200),
-    (0, 200)
-]
-
-# Defines input and output value scaling to change physical values into NNet-friendly values
-SCALE_VALUES = True
-SCALED_RANGE = [
-    (-1.0, 1.0),
-    (-1.0, 1.0),
-    (-1.0, 1.0)
-]
 
 # def generate_position() -> tuple[list[float], list[float]]:
 #     """ Return a tuple of ([position], [angles]) for a random robot pose """
@@ -52,7 +30,7 @@ def generate_position_constrained() -> tuple[list[float], list[float]]:
 
     while 1:
         # Choose a random point in achievable space
-        coordinates = [random.uniform(*limits) for limits in OUTPUT_SPACE]
+        coordinates = [random.uniform(*limits) for limits in ROBOT_RANGE]
         try:
             # Account for joint3 introducing offset in get_inverse
             real_z = coordinates[2] - net_kinematics.ROBOT_L3
@@ -71,23 +49,6 @@ def generate_position_constrained() -> tuple[list[float], list[float]]:
     return (three_joint_coordinates, angles)
 
 
-def scale_values(values: Iterable[float], input_ranges: list[tuple[float, float]], output_ranges: list[tuple[float, float]]) -> list[float]:
-    """
-    Map provided values from "real" range to values between the requested minumum and maximum using a linear scaling
-
-    values: list of "real" values which have a range that falls within the corresponding element of input_ranges
-    input_ranges: list of tuples, each tuple representing the possible range of the corresponding coordinate
-    output_ranges: list of tuples, each tuple representing the range to scale that element to
-    """
-    result = []
-    for i, value in enumerate(values):
-        (input_min, input_max) = input_ranges[i]
-        (output_min, output_max) = output_ranges[i]
-        new_value = (value - input_min) / (input_max - input_min) * (output_max - output_min) + output_min
-        result.append(new_value)
-    return result
-
-
 def generate_position_samples(n_samples: int, save_file: Path) -> None:
     """
     Generate n_samples, scale if required, and save to pickle file
@@ -95,12 +56,9 @@ def generate_position_samples(n_samples: int, save_file: Path) -> None:
     samples = []
     for i in range(n_samples):
         position = generate_position_constrained()
-        if SCALE_VALUES:
-            p = scale_values(position[0], OUTPUT_SPACE, SCALED_RANGE)
-            a = scale_values(position[1], JOINT_LIMITS, SCALED_RANGE)
-            samples.append([p, a])
-        else:
-            samples.append(position)
+        positions = scale_values(position[0], ROBOT_RANGE, NNET_INPUT_RANGE)
+        angles = scale_values(position[1], JOINT_LIMITS, NNET_OUTPUT_RANGE)
+        samples.append([positions, angles])
 
     with open(save_file, 'wb') as f:
         pickle.dump(samples, f)

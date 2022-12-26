@@ -8,7 +8,7 @@ import pickle
 import time
 import serial
 import matplotlib.pyplot as plt
-import position_generator
+from settings import *
 import net_kinematics
 from nnet import SimpleRobotNNet
 from math import pi
@@ -30,9 +30,9 @@ TARGET_PATH = [
 
 def run_evaluation(model: SimpleRobotNNet, ser):
     for position in TARGET_PATH:
-        target = position_generator.scale_values(position, position_generator.OUTPUT_SPACE, position_generator.SCALED_RANGE)
+        target = scale_values(position, ROBOT_RANGE, NNET_INPUT_RANGE)
         thetas = model.compute_joints(*target)
-        thetas = position_generator.scale_values(thetas, position_generator.SCALED_RANGE, position_generator.JOINT_LIMITS)
+        thetas = scale_values(thetas, NNET_OUTPUT_RANGE, JOINT_LIMITS)
 
         (real_x, real_y, real_z) = net_kinematics.get_forward(thetas[0], thetas[1], thetas[2])
         dx = position[0] - real_x
@@ -62,10 +62,11 @@ def main():
     """
     Train and run neural network for robot control
     """
-    save_file = "results/nnet_1e4epoch_scaled.pkl"
+    # save_file = "results/nnet_1e4epoch_scaled.pkl"
 
-    with open(save_file, 'rb') as f:
-        network = pickle.load(f)
+    # with open(save_file, 'rb') as f:
+    #     network = pickle.load(f)
+    network = None
 
     robot = SimpleRobotNNet(network)
     # robot = SimpleRobotNNet()
@@ -77,7 +78,7 @@ def main():
 
     # Train for N epochs
     print("Beginning Training")
-    for epoch in range(10000):
+    for epoch in range(20000):
         # print(f'Training Epoch {epoch}')
         train_loss, train_samples = robot.train(training_files)
         test_loss, test_samples = robot.test(testing_files)
@@ -110,7 +111,7 @@ def main():
 
 
 def test_nnet():
-    save_file = "results/nnet_1e4epoch_scaled.pkl"
+    save_file = "results/nnet_2e4_reduced_y_range.pkl"
 
     with open(save_file, 'rb') as f:
         network = pickle.load(f)
@@ -121,9 +122,9 @@ def test_nnet():
         x = float(input('X: '))
         y = float(input('Y: '))
         z = float(input('Z: '))
-        target = position_generator.scale_values([x, y, z], position_generator.OUTPUT_SPACE, position_generator.SCALED_RANGE)
+        target = scale_values([x, y, z], ROBOT_RANGE, NNET_INPUT_RANGE)
         thetas = robot.compute_joints(*target)
-        thetas = position_generator.scale_values(thetas, position_generator.SCALED_RANGE, position_generator.JOINT_LIMITS)
+        thetas = scale_values(thetas, NNET_OUTPUT_RANGE, JOINT_LIMITS)
 
         (real_x, real_y, real_z) = net_kinematics.get_forward(thetas[0], thetas[1], thetas[2])
         dx = x - real_x

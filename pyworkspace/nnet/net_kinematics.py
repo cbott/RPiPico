@@ -1,12 +1,9 @@
 from math import atan2, cos, pi, sin
 from typing import Tuple
+from settings import *
 
 import numpy as np
 
-# Robot segment lengths [mm]
-ROBOT_L1 = 120
-ROBOT_L2 = 115
-ROBOT_L3 = 58
 
 # Wolfram alpha DH matrices
 # {{cos\(40)a\(41),0,sin\(40)a\(41),0},{sin\(40)a\(41),0,-cos\(40)a\(41),0},{0,1,0,0},{0,0,0,1}}{{cos\(40)b\(41),-sin\(40)b\(41),0,l*cos\(40)b\(41)},{sin\(40)b\(41),cos\(40)b\(41),0,l*sin\(40)b\(41)},{0,0,1,0},{0,0,0,1}}{{cos\(40)c\(41),-sin\(40)c\(41),0,m*cos\(40)c\(41)},{sin\(40)c\(41),cos\(40)c\(41),0,m*sin\(40)c\(41)},{0,0,1,0},{0,0,0,1}}{{cos\(40)d\(41),-sin\(40)d\(41),0,n*cos\(40)d\(41)},{sin\(40)d\(41),cos\(40)d\(41),0,n*sin\(40)d\(41)},{0,0,1,0},{0,0,0,1}}
