@@ -11,5 +11,5 @@
         ".vscode\\Pico-Stub\\stubs",
         "nnet/"
     ],
-    "python.linting.pycodestyleEnabled": true
+    "python.linting.pycodestyleEnabled": true,
 }

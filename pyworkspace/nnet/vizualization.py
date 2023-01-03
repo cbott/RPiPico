@@ -1,11 +1,14 @@
 # vizualization.py
 # functions for plotting inverse kinematics results]
+import argparse
+
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
 from models import InvKin
 
-def plot_joint_locs(joint_locs, target_locs=None, save_path=None):
+
+def plot_joint_locs(joint_locs: np.ndarray, target_locs: np.ndarray|None=None, save_path: str|None=None):
     '''
     joint_locs (np array):
         joint locations of shape (batch, joint_idx, xyz) = (B, 3, 3)
@@ -20,11 +23,11 @@ def plot_joint_locs(joint_locs, target_locs=None, save_path=None):
 
     # Plot each arm
     for jls in joint_locs:
-        ax.plot(np.array(jls[:, 0]), np.array(jls[:, 1]), np.array(jls[:, 2]))
+        ax.plot(jls[:, 0], jls[:, 1], jls[:, 2])
 
     # Plot each target
     if target_locs is not None:
-        ax.scatter(np.array(target_locs[:, 0]), np.array(target_locs[:, 1]), np.array(target_locs[:, 2]))
+        ax.scatter(target_locs[:, 0], target_locs[:, 1], target_locs[:, 2])
 
     # These ranges are hardcoded...
     ax.set_xlim(-.25, .25)
@@ -72,16 +75,68 @@ def random_test(model, N=16, save_path=None):
         # Get joint locs for each prediction
         _, joint_locs = model.forward_model(thetas)
 
-    plot_joint_locs(joint_locs, target_locs=xs, save_path=save_path)
+    plot_joint_locs(joint_locs.numpy(), target_locs=xs.numpy(), save_path=save_path)
 
-# Make model
-model = InvKin()
 
-# Load checkpoint
-chkpt = torch.load('chkpt.pth')
-model.load_state_dict(chkpt)
-model = model.eval()
+def error_heatmap(model: torch.nn.Module) -> None:
+    """
+    Create a 3D heatmap over the provided range, with color indicating
+    the model's predition error at the coordinate
+    """
+    ranges = [
+        [-0.125, 0.125, 9],  # X
+        [-0.125, 0.125, 9],  # Y
+        [-0.125, 0.125, 9]   # Z
+    ]
 
-# Run visualization
-#sanity_check(model)
-random_test(model, 8)
+    # Create 3D point cloud
+    target_pts = []
+    for x in np.linspace(*ranges[0]):
+        for y in np.linspace(*ranges[1]):
+            for z in np.linspace(*ranges[2]):
+                target_pts.append(torch.tensor([x, y, z], dtype=torch.float))
+    target_pts = torch.stack(target_pts)
+
+    # Run the model on each point and get error
+    with torch.no_grad():
+        thetas, pred_pts = model(target_pts)
+        dist = torch.linalg.norm(target_pts - pred_pts, dim=1).numpy()
+
+    # creating figures
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    img = ax.scatter(target_pts[:, 0], target_pts[:, 1], target_pts[:, 2], c=dist, cmap='gnuplot2', s=200)
+    plt.colorbar(img)
+
+    # adding title and labels
+    ax.set_title("3D Position Error [mm]")
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+
+    # displaying plot
+    plt.show()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("model", help="filename of model to visualize")
+    args = parser.parse_args()
+
+    # Make model
+    model = InvKin()
+
+    # Load checkpoint
+    chkpt = torch.load(args.model)
+    model.load_state_dict(chkpt)
+    model.eval()
+
+    # Run visualization
+    # sanity_check(model)
+    # random_test(model)
+    error_heatmap(model)
+
+
+if __name__ == "__main__":
+    main()

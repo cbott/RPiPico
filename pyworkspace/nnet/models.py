@@ -1,9 +1,11 @@
 # models.py
 # Pytorch nnet implementations
 # Sections adapted from https://github.com/dangeng/inverse_kinematics
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
+from settings import *
+
 
 class InvKin(nn.Module):
     def __init__(self, n_theta=3, hidden_dim=64):
