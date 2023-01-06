@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from models import InvKin
+from settings import *
 
 
 def plot_joint_locs(joint_locs: np.ndarray, target_locs: np.ndarray|None=None, save_path: str|None=None):
@@ -84,9 +85,9 @@ def error_heatmap(model: torch.nn.Module) -> None:
     the model's predition error at the coordinate
     """
     ranges = [
-        [-0.125, 0.125, 9],  # X
-        [-0.125, 0.125, 9],  # Y
-        [-0.125, 0.125, 9]   # Z
+        [ROBOT_RANGE[0][0], ROBOT_RANGE[0][1], 9],  # X
+        [ROBOT_RANGE[1][0], ROBOT_RANGE[1][1], 9],  # Y
+        [ROBOT_RANGE[2][0], ROBOT_RANGE[2][1], 9]   # Z
     ]
 
     # Create 3D point cloud

@@ -1,8 +1,8 @@
 from math import atan2, cos, pi, sin
 from typing import Tuple
-from settings import *
 
 import numpy as np
+from settings import *
 
 
 # Wolfram alpha DH matrices
