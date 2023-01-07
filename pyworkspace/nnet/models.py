@@ -77,7 +77,7 @@ class InvKin(nn.Module):
         return x, joint_locs
 
     def forward(self, x):
-        '''
+        """
         Given xyz positions, runs the model to predict thetas for the
             robot arm to get to the xyz position. Also run a forward
             model on the thetas to get the real xyz position.
@@ -94,7 +94,7 @@ class InvKin(nn.Module):
         pred_x (torch.tensor) : shape (B, 3)
             the actual xyz locations resulting from the
             predicted thetas
-        '''
+        """
         scaled_x = scale_values(x, self.robot_range, self.net_input_range)
         thetas = self.net(scaled_x)
         pred_x, _ = self.forward_model(thetas)

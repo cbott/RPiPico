@@ -1,5 +1,5 @@
 # vizualization.py
-# functions for plotting inverse kinematics results]
+# functions for plotting inverse kinematics results
 import argparse
 
 import matplotlib.pyplot as plt
@@ -7,20 +7,22 @@ import numpy as np
 import torch
 from models import InvKin
 from settings import *
+from utilities import PositionSampler
 
 
-def plot_joint_locs(joint_locs: np.ndarray, target_locs: np.ndarray|None=None, save_path: str|None=None):
-    '''
+def plot_joint_locs(joint_locs: np.ndarray, target_locs: np.ndarray | None = None, save_path: str | None = None):
+    """
     joint_locs (np array):
         joint locations of shape (batch, joint_idx, xyz) = (B, 3, 3)
     target_locs (np array):
         optional target locations to plot, of shape (batch, xyz)
     save_path:
         optional save path
-    '''
+    """
     # Make 3d plot
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
+    ax.set_box_aspect(np.ptp(ROBOT_RANGE, axis=1))
 
     # Plot each arm
     for jls in joint_locs:
@@ -31,9 +33,9 @@ def plot_joint_locs(joint_locs: np.ndarray, target_locs: np.ndarray|None=None, s
         ax.scatter(target_locs[:, 0], target_locs[:, 1], target_locs[:, 2])
 
     # These ranges are hardcoded...
-    ax.set_xlim(-.25, .25)
-    ax.set_ylim(-.25, .25)
-    ax.set_zlim(-.25, .25)
+    ax.set_xlim(*ROBOT_RANGE[0])
+    ax.set_ylim(*ROBOT_RANGE[1])
+    ax.set_zlim(*ROBOT_RANGE[2])
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('z')
@@ -42,6 +44,7 @@ def plot_joint_locs(joint_locs: np.ndarray, target_locs: np.ndarray|None=None, s
         plt.savefig(save_path)
     else:
         plt.show()
+
 
 def sanity_check(model, N=16, save_path=None):
     '''
@@ -62,13 +65,15 @@ def sanity_check(model, N=16, save_path=None):
 
     plot_joint_locs(joint_locs, save_path=save_path)
 
-def random_test(model, N=16, save_path=None):
+
+def random_test(model: torch.nn.Module, N: int = 16, save_path: str | None = None):
     '''
     Sample random locations, and plot predictions
     '''
     with torch.no_grad():
         # Sample random point in "roughly" reachable space: [-.25, .25]**3
-        xs = torch.rand((N, 3)) * .25 - .125
+        sampler = PositionSampler(ROBOT_RANGE)
+        xs = sampler.get_samples(N)
 
         # Forward through model
         thetas, pred_x = model(xs)
@@ -85,7 +90,7 @@ def error_heatmap(model: torch.nn.Module) -> None:
     the model's predition error at the coordinate
     """
     ranges = [
-        [ROBOT_RANGE[0][0], ROBOT_RANGE[0][1], 9],  # X
+        [ROBOT_RANGE[0][0], ROBOT_RANGE[0][1], 18],  # X
         [ROBOT_RANGE[1][0], ROBOT_RANGE[1][1], 9],  # Y
         [ROBOT_RANGE[2][0], ROBOT_RANGE[2][1], 9]   # Z
     ]
@@ -106,6 +111,7 @@ def error_heatmap(model: torch.nn.Module) -> None:
     # creating figures
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection='3d')
+    ax.set_box_aspect(np.ptp(ROBOT_RANGE, axis=1))
 
     img = ax.scatter(target_pts[:, 0], target_pts[:, 1], target_pts[:, 2], c=dist, cmap='gnuplot2', s=200)
     plt.colorbar(img)
@@ -135,8 +141,8 @@ def main():
 
     # Run visualization
     # sanity_check(model)
-    # random_test(model)
-    error_heatmap(model)
+    random_test(model, 1)
+    # error_heatmap(model)
 
 
 if __name__ == "__main__":

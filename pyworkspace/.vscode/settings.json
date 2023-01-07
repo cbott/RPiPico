@@ -1,5 +1,5 @@
 {
-    "python.linting.enabled": false,
+    "python.linting.enabled": true,
     "python.analysis.typeshedPaths": [
         ".vscode/Pico-Stub",
         ".vscode\\Pico-Stub"

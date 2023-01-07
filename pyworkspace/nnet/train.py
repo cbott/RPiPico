@@ -9,6 +9,7 @@ from models import InvKin
 from settings import *
 from torch.optim import Adam
 from tqdm import tqdm
+from utilities import PositionSampler
 
 device = 'cpu'      # Device
 
@@ -26,15 +27,12 @@ def train_model(model: torch.nn.Module, batch_size: int, niter: int) -> List[flo
     model = model.to(device)
     optimizer = Adam(model.parameters(), lr=1e-4)
 
-    xdist = torch.distributions.uniform.Uniform(*ROBOT_RANGE[0])
-    ydist = torch.distributions.uniform.Uniform(*ROBOT_RANGE[1])
-    zdist = torch.distributions.uniform.Uniform(*ROBOT_RANGE[2])
-    n = torch.Size([batch_size])
+    sampler = PositionSampler(ROBOT_RANGE)
 
     losses = []
     for iter in tqdm(range(niter)):
         # Sample random point in reachable space:
-        target_coords = torch.stack([xdist.sample(n), ydist.sample(n), zdist.sample(n)]).T
+        target_coords = sampler.get_samples(batch_size)
         target_coords = target_coords.to(device)
 
         # Forward through model

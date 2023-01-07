@@ -1,25 +1,55 @@
 # utilities.py
 # Helper functions for NNet
+from typing import List, Tuple
+
 import torch
+
+
+class PositionSampler:
+    """Class for generating groups of random numbers within the provided ranges"""
+    def __init__(self, ranges: List[Tuple[float, float]]) -> None:
+        """Initialize PositionSampler object.
+
+        Args:
+            ranges: List containing (low, high) values for each feature in the output
+        """
+        self.distributions = [torch.distributions.uniform.Uniform(*minmax) for minmax in ranges]
+
+    def get_samples(self, num_samples: int) -> torch.Tensor:
+        """Get a set of random points in the samper's range.
+
+        Args:
+            num_samples: number of rows in the returned tensor
+
+        Returns:
+            Tensor with size (N, M
+            N: num_samples
+            M: size of the ranges list the PositionSampler was initialized with
+        """
+        n = torch.Size([num_samples])
+        return torch.stack([dist.sample(n) for dist in self.distributions]).T
 
 
 def scale_values(values: torch.Tensor,
                  input_ranges: torch.Tensor,
                  output_ranges: torch.Tensor) -> torch.Tensor:
-    """
-    Map provided values from the input range to the output range using a linear scaling
+    """Map provided values from the input range to the output range using a linear scaling.
 
-    values : shape (N, M)
-        2D tensor of values, N groups of M elements each which should be scaled according to the ranges
-    input_ranges : shape (M, 2)
-        tensor containing expected ranges for each of the M elements, minimum in column 0, maximum in column 1
-    output_ranges : shape (M, 2)
-        tensor containing desired ranges for each of the M elements, minimum in column 0, maximum in column 1
+    Args:
+        values : shape (N, M)
+            2D tensor of values, N groups of M elements each which should be scaled according to the ranges
+        input_ranges : shape (M, 2)
+            tensor containing expected ranges for each of the M elements, minimum in column 0, maximum in column 1
+        output_ranges : shape (M, 2)
+            tensor containing desired ranges for each of the M elements, minimum in column 0, maximum in column 1
+
+    Returns:
+        Scaled tensor
     """
     return (values - input_ranges[:, 0]) \
-           / (input_ranges[:, 1] - input_ranges[:, 0]) \
-           * (output_ranges[:, 1] - output_ranges[:, 0]) \
-           + output_ranges[:, 0]
+        / (input_ranges[:, 1] - input_ranges[:, 0]) \
+        * (output_ranges[:, 1] - output_ranges[:, 0]) \
+        + output_ranges[:, 0]
 
 
 # Legacy version
