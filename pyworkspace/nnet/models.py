@@ -10,24 +10,43 @@ from utilities import scale_values
 
 
 class InvKin(nn.Module):
-    def __init__(self, n_theta=3, hidden_dim=64):
+    def __init__(self, n_theta: int = 3, n_hidden: int = 3, hidden_dim: int = 64, normalize: bool = True):
+        """Initialize the inverse kinematics model
+
+        Args:
+            n_theta: number of angle features in the output. Defaults to 3.
+            n_hidden: number of hidden layers in the model. Defaults to 3.
+            hidden_dim: number of nodes per hidden layer. Defaults to 64.
+            normalize: whether or not to apply a BatchNorm before each hidden layer. Defaults to True.
+        """
         super().__init__()
 
         self.n_theta = n_theta
+        self.n_hidden = n_hidden
+        self.hidden_dim = hidden_dim
+        self.normalize = normalize
+
+        # Define the layers for the model
+        if n_hidden < 1:
+            raise ValueError("Model must have at least 1 hidden layer")
+
+        layers = [nn.Linear(3, hidden_dim)]
+        if normalize:
+            layers += [nn.BatchNorm1d(hidden_dim)]
+        layers += [nn.ReLU()]
+
+        for _ in range(n_hidden - 1):
+            layers += [nn.Linear(hidden_dim, hidden_dim)]
+            if normalize:
+                layers += [nn.BatchNorm1d(hidden_dim)]
+            layers += [nn.ReLU()]
+
+        layers += [
+            nn.Linear(hidden_dim, n_theta)
+        ]
 
         # Inverse kinematics model: R^3 -> R^n
-        self.net = nn.Sequential(
-                        nn.Linear(3, hidden_dim),
-                        nn.BatchNorm1d(hidden_dim),
-                        nn.ReLU(),
-                        nn.Linear(hidden_dim, hidden_dim),
-                        nn.BatchNorm1d(hidden_dim),
-                        nn.ReLU(),
-                        nn.Linear(hidden_dim, hidden_dim),
-                        nn.BatchNorm1d(hidden_dim),
-                        nn.ReLU(),
-                        nn.Linear(hidden_dim, n_theta)
-                   )
+        self.net = nn.Sequential(*layers)
 
         self.rs = [ROBOT_L1, ROBOT_L2]
         self.robot_range = torch.tensor(ROBOT_RANGE)

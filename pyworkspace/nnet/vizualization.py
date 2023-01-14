@@ -141,7 +141,7 @@ def main():
 
     # Run visualization
     # sanity_check(model)
-    random_test(model, 1)
+    random_test(model)
     # error_heatmap(model)
 
 
